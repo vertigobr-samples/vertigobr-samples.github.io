@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Autorizar acesso</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { max-width: 28rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }
+    button { font: inherit; padding: .6rem 1.2rem; margin-right: .5rem; cursor: pointer; }
+    .erro { color: #c0392b; }
+    [hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Autorizar acesso</h1>
+  <p id="status">Carregando…</p>
+
+  <section id="login" hidden>
+    <p>Entre com sua conta Google da Vertigo (@vertigo.com.br ou @vee.codes).</p>
+    <button id="entrar">Entrar com Google</button>
+  </section>
+
+  <!-- Valores públicos do projeto. A publishable key pode ir no navegador; nunca coloque aqui uma secret key. -->
+  <script>
+    window.CONFIG = {
+      supabaseUrl: "https://ljjnkxwwqisjneyimcqb.supabase.co",
+      publishableKey: "sb_publishable_tWuDT86OJnBjSIec4DZDMQ_eN_eX9gu",
+      // Client ID do Claude em Authentication → OAuth Apps (identificador, não segredo).
+      claudeClientId: "763df3bd-68a1-4a4c-8e06-2d96156bb6fc",
+    };
+  </script>
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm";
+
+    const $ = (id) => document.getElementById(id);
+    const status = (texto, erro = false) => {
+      $("status").textContent = texto;
+      $("status").className = erro ? "erro" : "";
+      $("status").hidden = !texto;
+    };
+
+    const authorizationId = new URL(location.href).searchParams.get("authorization_id");
+    if (!authorizationId) {
+      status("Pedido de autorização inválido: falta authorization_id.", true);
+      throw new Error("authorization_id ausente");
+    }
+
+    const supabase = createClient(window.CONFIG.supabaseUrl, window.CONFIG.publishableKey, {
+      auth: { flowType: "pkce", detectSessionInUrl: true },
+    });
+
+    // Só o Claude é autorizado, e sem perguntar. Qualquer outro cliente é negado,
+    // para não existir um botão "Autorizar" que alguém possa ser induzido a clicar.
+    const CALLBACK_DO_CLAUDE = "https://claude.ai/api/mcp/auth_callback";
+
+    const entrarComGoogle = () => {
+      const volta = new URL(location.origin + location.pathname);
+      volta.searchParams.set("authorization_id", authorizationId);
+      supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: volta.toString() },
+      });
+    };
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      const erroDoLogin = new URL(location.href).searchParams.get("error_description");
+      if (erroDoLogin) {
+        status(`O login falhou: ${erroDoLogin}`, true);
+        $("login").hidden = false;
+        $("entrar").onclick = entrarComGoogle;
+      } else {
+        status("Indo para o login do Google…");
+        entrarComGoogle();
+      }
+    } else {
+      const { data, error } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
+      if (error) {
+        status(`Não foi possível carregar o pedido: ${error.message}`, true);
+      } else if (!("authorization_id" in data)) {
+        location.href = data.redirect_url;
+      } else if (
+        data.client.id === window.CONFIG.claudeClientId &&
+        data.redirect_uri === CALLBACK_DO_CLAUDE
+      ) {
+        status("Autorizando o Claude…");
+        const { error } = await supabase.auth.oauth.approveAuthorization(authorizationId);
+        if (error) status(`Falhou: ${error.message}`, true);
+      } else {
+        await supabase.auth.oauth.denyAuthorization(authorizationId, { skipBrowserRedirect: true });
+        status("Este aplicativo não está autorizado a acessar as ferramentas da Vertigo.", true);
+      }
+    }
+  </script>
+</body>
+</html>
