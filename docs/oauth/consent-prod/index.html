@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Autorizar acesso</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { max-width: 28rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }
+    button { font: inherit; padding: .6rem 1.2rem; margin-right: .5rem; cursor: pointer; }
+    .erro { color: #c0392b; }
+    [hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Autorizar acesso</h1>
+  <p id="status">Carregando…</p>
+
+  <section id="login" hidden>
+    <p>Entre com sua conta Google da Vertigo (@vertigo.com.br ou @vee.codes).</p>
+    <button id="entrar">Entrar com Google</button>
+  </section>
+
+  <!-- Valores públicos do projeto. A publishable key pode ir no navegador; nunca coloque aqui uma secret key. -->
+  <script>
+    window.CONFIG = {
+      supabaseUrl: "https://ivuoyiwwqojaoqvhixmb.supabase.co",
+      publishableKey: "sb_publishable_v_xxbmZSOkznm5DRk7OKgQ_0tADqWX4",
+      // Client ID do Claude em Authentication → OAuth Apps (identificador, não segredo).
+      claudeClientId: "43fe1344-06fb-43e3-961f-d16c46883277",
+    };
+  </script>
+  <script type="module" src="../consent.js"></script>
+</body>
+</html>
